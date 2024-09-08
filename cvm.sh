@@ -170,11 +170,30 @@ checkDependencies() {
   done
 }
 
+isShellSupported() {
+  case "$(basename "$SHELL")" in
+    sh|dash|bash|zsh)
+      return 0
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
 
 
 #
 # Execution
 #
+if ! isShellSupported; then
+  echo "Error: Unsupported shell. Please use bash, zsh, or sh."
+  echo "Currently using: $(basename "$SHELL")"
+  echo "Open a github issue if you want to add support for your shell:"
+  echo "https://github.com/ivstiv/cursor-version-manager/issues"
+  exit 1
+fi
+
 checkDependencies
 mkdir -p "$DOWNLOADS_DIR"
 
