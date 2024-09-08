@@ -95,40 +95,40 @@ installCVM() {
   latestRemoteVersion=$(getLatestRemoteVersion)
   latestLocalVersion=$(getLatestLocalVersion)
   if [ "$latestRemoteVersion" != "$latestLocalVersion" ]; then
-      downloadLatest "$latestRemoteVersion"
+    downloadLatest "$latestRemoteVersion"
   fi
   selectVersion "$latestRemoteVersion"
 
   echo "Cursor $latestRemoteVersion installed and activated."
   echo "Adding alias to your shell config..."
   case "$(basename "$SHELL")" in
-      sh|dash)
-          if ! grep -q "alias cursor='$CURSOR_DIR/active'" "$HOME/.profile"; then
-              echo "alias cursor='$CURSOR_DIR/active'" >> "$HOME/.profile"
-          fi
-          ;;
-      bash)
-          if ! grep -q "alias cursor='$CURSOR_DIR/active'" "$HOME/.bashrc"; then
-              echo "alias cursor='$CURSOR_DIR/active'" >> "$HOME/.bashrc"
-          fi
-          ;;
-      zsh)
-          if ! grep -q "alias cursor='$CURSOR_DIR/active'" "$HOME/.zshrc"; then
-              echo "alias cursor='$CURSOR_DIR/active'" >> "$HOME/.zshrc"
-          fi
-          ;;
+    sh|dash)
+      if ! grep -q "alias cursor='$CURSOR_DIR/active'" "$HOME/.profile"; then
+        echo "alias cursor='$CURSOR_DIR/active'" >> "$HOME/.profile"
+      fi
+      ;;
+    bash)
+      if ! grep -q "alias cursor='$CURSOR_DIR/active'" "$HOME/.bashrc"; then
+        echo "alias cursor='$CURSOR_DIR/active'" >> "$HOME/.bashrc"
+      fi
+      ;;
+    zsh)
+      if ! grep -q "alias cursor='$CURSOR_DIR/active'" "$HOME/.zshrc"; then
+        echo "alias cursor='$CURSOR_DIR/active'" >> "$HOME/.zshrc"
+      fi
+      ;;
   esac
   echo "Alias added. You can now use 'cursor' to run Cursor."
   case "$(basename "$SHELL")" in
-      sh|dash)
-          echo "Run '. ~/.profile' to apply the changes or restart your shell."
-          ;;
-      bash)
-          echo "Run 'source ~/.bashrc' to apply the changes or restart your shell."
-          ;;
-      zsh)
-          echo "Run 'source ~/.zshrc' to apply the changes or restart your shell."
-          ;;
+    sh|dash)
+      echo "Run '. ~/.profile' to apply the changes or restart your shell."
+      ;;
+    bash)
+      echo "Run 'source ~/.bashrc' to apply the changes or restart your shell."
+      ;;
+    zsh)
+      echo "Run 'source ~/.zshrc' to apply the changes or restart your shell."
+      ;;
   esac
 }
 
@@ -136,26 +136,26 @@ uninstallCVM() {
   rm -rf "$CURSOR_DIR"
   case "$(basename "$SHELL")" in
     sh|dash)
-        if grep -q "alias cursor='$CURSOR_DIR/active'" "$HOME/.profile"; then
-            sed -i "\#alias cursor='$CURSOR_DIR/active'#d" "$HOME/.profile"
-            echo "Alias removed from ~/.profile"
-            echo "Run '. ~/.profile' to apply the changes or restart your shell."
-        fi
-        ;;
+      if grep -q "alias cursor='$CURSOR_DIR/active'" "$HOME/.profile"; then
+        sed -i "\#alias cursor='$CURSOR_DIR/active'#d" "$HOME/.profile"
+        echo "Alias removed from ~/.profile"
+        echo "Run '. ~/.profile' to apply the changes or restart your shell."
+      fi
+      ;;
     bash)
-        if grep -q "alias cursor='$CURSOR_DIR/active'" "$HOME/.bashrc"; then
-            sed -i "\#alias cursor='$CURSOR_DIR/active'#d" "$HOME/.bashrc"
-            echo "Alias removed from ~/.bashrc"
-            echo "Run 'source ~/.bashrc' to apply the changes or restart your shell."
-        fi
-        ;;
+      if grep -q "alias cursor='$CURSOR_DIR/active'" "$HOME/.bashrc"; then
+        sed -i "\#alias cursor='$CURSOR_DIR/active'#d" "$HOME/.bashrc"
+        echo "Alias removed from ~/.bashrc"
+        echo "Run 'source ~/.bashrc' to apply the changes or restart your shell."
+      fi
+      ;;
     zsh)
-        if grep -q "alias cursor='$CURSOR_DIR/active'" "$HOME/.zshrc"; then
-            sed -i "\#alias cursor='$CURSOR_DIR/active'#d" "$HOME/.zshrc"
-            echo "Alias removed from ~/.zshrc"
-            echo "Run 'source ~/.zshrc' to apply the changes or restart your shell."
-        fi
-        ;;
+      if grep -q "alias cursor='$CURSOR_DIR/active'" "$HOME/.zshrc"; then
+        sed -i "\#alias cursor='$CURSOR_DIR/active'#d" "$HOME/.zshrc"
+        echo "Alias removed from ~/.zshrc"
+        echo "Run 'source ~/.zshrc' to apply the changes or restart your shell."
+      fi
+      ;;
   esac
   echo "Cursor version manager uninstalled."
 }
@@ -179,76 +179,76 @@ checkDependencies
 mkdir -p "$DOWNLOADS_DIR"
 
 case "$1" in
-    --help|-h)
-        help
-        ;;
-    --version|-v)
-        echo "$CVM_VERSION"
-        ;;
-    --update)
-        latestVersion=$(getLatestRemoteVersion)
-        downloadLatest "$latestVersion"
-        selectVersion "$version"
-        ;;
-    --list-local)
-        echo "Locally available versions:"
-        # shellcheck disable=SC2010
-        ls -1 "$DOWNLOADS_DIR" \
-          | grep -oP 'cursor-\K[0-9.]+(?=\.)' \
-          | sed 's/^/  - /'
-        ;;
-    --check)
-        latestRemoteVersion=$(getLatestRemoteVersion)
-        latestLocalVersion=$(getLatestLocalVersion)
-        activeVersion=$(getActiveVersion)
-        echo "Latest remote version: $latestRemoteVersion"
-        echo "Latest locally available: $latestLocalVersion"
-        echo "Currently active: $activeVersion"
+  --help|-h)
+    help
+    ;;
+  --version|-v)
+    echo "$CVM_VERSION"
+    ;;
+  --update)
+    latestVersion=$(getLatestRemoteVersion)
+    downloadLatest "$latestVersion"
+    selectVersion "$version"
+    ;;
+  --list-local)
+    echo "Locally available versions:"
+    # shellcheck disable=SC2010
+    ls -1 "$DOWNLOADS_DIR" \
+      | grep -oP 'cursor-\K[0-9.]+(?=\.)' \
+      | sed 's/^/  - /'
+    ;;
+  --check)
+    latestRemoteVersion=$(getLatestRemoteVersion)
+    latestLocalVersion=$(getLatestLocalVersion)
+    activeVersion=$(getActiveVersion)
+    echo "Latest remote version: $latestRemoteVersion"
+    echo "Latest locally available: $latestLocalVersion"
+    echo "Currently active: $activeVersion"
 
-        if [ "$latestRemoteVersion" != "$latestLocalVersion" ]; then
-            echo "There is a newer version available for download!"
-            echo "You can activate the latest version with \`cvm --update\`"
-        else
-            echo "Already up to date."
-        fi
-        ;;
-    --active)
-        getActiveVersion
-        ;;
-    --use)
-        version=$2
-        if [ -z "$version" ]; then
-            echo "Usage: $0 --use <version>"
-            exit 1
-        fi
+    if [ "$latestRemoteVersion" != "$latestLocalVersion" ]; then
+      echo "There is a newer version available for download!"
+      echo "You can activate the latest version with \`cvm --update\`"
+    else
+      echo "Already up to date."
+    fi
+    ;;
+  --active)
+    getActiveVersion
+    ;;
+  --use)
+    version=$2
+    if [ -z "$version" ]; then
+      echo "Usage: $0 --use <version>"
+      exit 1
+    fi
 
-        exitIfVersionNotInstalled "$version"
-        selectVersion "$version"
-        ;;
-    --remove)
-        version=$2
-        if [ -z "$version" ]; then
-            echo "Usage: $0 --remove <version>"
-            exit 1
-        fi
+    exitIfVersionNotInstalled "$version"
+    selectVersion "$version"
+    ;;
+  --remove)
+    version=$2
+    if [ -z "$version" ]; then
+      echo "Usage: $0 --remove <version>"
+      exit 1
+    fi
 
-        exitIfVersionNotInstalled "$version"
-        activeVersion=$(getActiveVersion)
+    exitIfVersionNotInstalled "$version"
+    activeVersion=$(getActiveVersion)
 
-        if [ "$activeVersion" = "$version" ]; then
-          rm "$CURSOR_DIR/active"
-        fi
-        rm "$DOWNLOADS_DIR/cursor-$version.AppImage"
-        ;;
-    --install)
-        installCVM
-        ;;
-    --uninstall)
-        uninstallCVM
-        ;;
-    *)
-        echo "Unknown command: $1"
-        help
-        exit 1
-        ;;
+    if [ "$activeVersion" = "$version" ]; then
+      rm "$CURSOR_DIR/active"
+    fi
+    rm "$DOWNLOADS_DIR/cursor-$version.AppImage"
+    ;;
+  --install)
+    installCVM
+    ;;
+  --uninstall)
+    uninstallCVM
+    ;;
+  *)
+    echo "Unknown command: $1"
+    help
+    exit 1
+    ;;
 esac
