@@ -1,6 +1,6 @@
 # Cursor Version Manager
 
-A shell script to manage multiple versions of Cursor locally on your machine. **Built for linux users that use the AppImage distribution of Cursor.**
+A shell script to manage multiple versions of [Cursor](https://www.cursor.com/) locally on your machine. **Built for linux users that use the AppImage distribution of Cursor.**
 
 ### Installation
 
@@ -21,7 +21,7 @@ chmod +x cvm.sh
 ```
 
 ### Usage
-```bash
+```
 cvm.sh — Cursor version manager
 
 Examples:
