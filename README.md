@@ -29,15 +29,23 @@ Examples:
   ./cvm.sh --check
   bash cvm.sh --use 0.40.4
 
+Notice*:
+  The --download command uses an unofficial source for the AppImage.
+  It is voluntarily made available by ivstiv at cursor-archive.ivstiv.dev
+  If you want to use the official Cursor AppImage, you can use the
+  --update or--install command to automatically download and install the latest version.
+
 Options:
-  --list-local       Lists locally available versions
-  --check            Check latest versions available for download
-  --update           Downloads and selects the latest version
-  --use <version>    Selects a locally available version
-  --active           Shows the currently selected version
-  --remove <version> Removes a locally available version
-  --install          Adds an alias `cursor` and downloads the latest version
-  --uninstall        Removes the Cursor version manager directory and alias
-  -v --version       Shows the script version
-  -h --help          Shows this message
+  --list-local         Lists locally available versions
+  --list-remote        Lists versions available for download
+  --download <version> Downloads a version
+  --check              Check latest versions available for download
+  --update             Downloads and selects the latest version
+  --use <version>      Selects a locally available version
+  --active             Shows the currently selected version
+  --remove <version>   Removes a locally available version
+  --install            Adds an alias `cursor` and downloads the latest version
+  --uninstall          Removes the Cursor version manager directory and alias
+  -v --version         Shows the script version
+  -h --help            Shows this message
 ```

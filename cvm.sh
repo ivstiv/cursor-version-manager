@@ -8,17 +8,25 @@
 #H#   ./cvm.sh --check
 #H#   bash cvm.sh --use 0.40.4
 #H#
+#H# Notice*:
+#H#   The --download command uses an unofficial source for the AppImage.
+#H#   It is voluntarily made available by ivstiv at cursor-archive.ivstiv.dev
+#H#   If you want to use the official Cursor AppImage, you can use the
+#H#   --update or--install command to automatically download and install the latest version.
+#H#
 #H# Options:
-#H#   --list-local       Lists locally available versions
-#H#   --check            Check latest versions available for download
-#H#   --update           Downloads and selects the latest version
-#H#   --use <version>    Selects a locally available version
-#H#   --active           Shows the currently selected version
-#H#   --remove <version> Removes a locally available version
-#H#   --install          Adds an alias `cursor` and downloads the latest version
-#H#   --uninstall        Removes the Cursor version manager directory and alias
-#H#   -v --version       Shows the script version
-#H#   -h --help          Shows this message
+#H#   --list-local         Lists locally available versions
+#H#   --list-remote        Lists versions available for download
+#H#   --download <version> Downloads a version
+#H#   --check              Check latest versions available for download
+#H#   --update             Downloads and selects the latest version
+#H#   --use <version>      Selects a locally available version
+#H#   --active             Shows the currently selected version
+#H#   --remove <version>   Removes a locally available version
+#H#   --install            Adds an alias `cursor` and downloads the latest version
+#H#   --uninstall          Removes the Cursor version manager directory and alias
+#H#   -v --version         Shows the script version
+#H#   -h --help            Shows this message
 
 
 
@@ -27,7 +35,7 @@
 #
 CURSOR_DIR="$HOME/.local/share/cvm"
 DOWNLOADS_DIR="$CURSOR_DIR/app-images"
-CVM_VERSION="1.0.0"
+CVM_VERSION="1.1.0"
 
 
 
@@ -63,6 +71,17 @@ downloadLatest() {
   echo "Cursor $version downloaded to $DOWNLOADS_DIR/$filename"
 }
 
+downloadVersion() {
+  version=$1 # e.g. 2.1.0
+  remoteFilename="cursor-$version"x86_64.AppImage
+  localFilename="cursor-$version.AppImage2"
+  url="https://cursor-archive.ivstiv.dev/archive/linux-x64/$remoteFilename"
+  echo "Downloading Cursor $version..."
+  curl -L "$url" -o "$DOWNLOADS_DIR/$localFilename"
+  chmod +x "$DOWNLOADS_DIR/$localFilename"
+  echo "Cursor $version downloaded to $DOWNLOADS_DIR/$localFilename"
+}
+
 selectVersion() {
   version=$1 # e.g. 2.1.0
   filename="cursor-$version.AppImage"
@@ -89,6 +108,13 @@ exitIfVersionNotInstalled() {
     echo "Version $version not found locally. Use \`cvm --list-local\` to list available versions."
     exit 1
   fi
+}
+
+getRemoteVersions() {
+  curl -s https://cursor-archive.ivstiv.dev/archive/linux-x64/ | 
+    grep -oP 'cursor-\K[0-9.]+(?=x86_64\.AppImage)' |
+    sort -V |
+    uniq
 }
 
 installCVM() {
@@ -216,6 +242,31 @@ case "$1" in
       | grep -oP 'cursor-\K[0-9.]+(?=\.)' \
       | sed 's/^/  - /'
     ;;
+  --list-remote)
+    echo "Remote versions:"
+    getRemoteVersions | sed 's/^/  - /'
+    ;;
+  --download)
+    version=$2
+    if [ -z "$version" ]; then
+      echo "Usage: $0 --download <version>"
+      exit 1
+    fi
+
+    # check if version is available for download
+    if ! getRemoteVersions | grep -q "^$version\$"; then
+      echo "Version $version not found for download."
+      exit 1
+    fi
+
+    # check if version is already downloaded
+    if [ -f "$DOWNLOADS_DIR/cursor-$version.AppImage" ]; then
+      echo "Version $version already downloaded."
+    else
+      downloadVersion "$version"
+    fi
+    echo "To select the downloaded version, run \`cvm --use $version\`"
+    ;;
   --check)
     latestRemoteVersion=$(getLatestRemoteVersion)
     latestLocalVersion=$(getLatestLocalVersion)
@@ -245,7 +296,7 @@ case "$1" in
     selectVersion "$version"
     ;;
   --remove)
-    version=$2
+    version=$2c
     if [ -z "$version" ]; then
       echo "Usage: $0 --remove <version>"
       exit 1
