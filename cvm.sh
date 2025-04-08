@@ -16,15 +16,14 @@
 #H#   --list-local         Lists locally available versions
 #H#   --list-remote        Lists versions available for download
 #H#   --download <version> Downloads a version
-#H#   --check              Check latest versions available for download
 #H#   --update             Downloads and selects the latest version
 #H#   --use <version>      Selects a locally available version
 #H#   --active             Shows the currently selected version
 #H#   --remove <version>   Removes a locally available version
 #H#   --install            Adds an alias `cursor` and downloads the latest version
 #H#   --uninstall          Removes the Cursor version manager directory and alias
-#H#   --update-script      Updates the (cvm) script to the latest version
-#H#   -v --version         Shows the script version
+#H#   --update-script      Updates the (cvm.sh) script to the latest version
+#H#   -v --version         Shows the current and latest versions for cvm.sh and Cursor
 #H#   -h --help            Shows this message
 
 
@@ -34,16 +33,27 @@
 #
 CURSOR_DIR="$HOME/.local/share/cvm"
 DOWNLOADS_DIR="$CURSOR_DIR/app-images"
-CVM_VERSION="1.2.0"
+CVM_VERSION="1.3.0"
 _CACHE_FILE="/tmp/cursor_versions.json"
 VERSION_HISTORY_URL="https://raw.githubusercontent.com/oslook/cursor-ai-downloads/refs/heads/main/version-history.json"
 GITHUB_API_URL="https://api.github.com/repos/ivstiv/cursor-version-manager/releases/latest"
+
+# Color definitions
+GREEN='\033[0;32m'
+ORANGE='\033[0;33m'
+NC='\033[0m' # No Color
 
 #
 # Functions
 #
 help() {
   sed -rn 's/^#H# ?//;T;p' "$0"
+}
+
+print_color() {
+  color=$1
+  text=$2
+  printf "%b%s%b\n" "$color" "$text" "$NC"
 }
 
 getLatestScriptVersion() {
@@ -77,15 +87,32 @@ getVersionHistory() {
   fi
 }
 
+getPlatform() {
+  architecture=$(uname -m)
+  case "$architecture" in
+    x86_64)
+      echo "linux-x64"
+      ;;
+    aarch64|arm64)
+      echo "linux-arm64"
+      ;;
+    *)
+      echo "Unsupported architecture: $architecture"
+      ;;
+  esac
+}
+
+platform=$(getPlatform)
+
 getRemoteVersions() {
   getVersionHistory | \
-    jq -r '.versions[] | select(.platforms["linux-x64"] != null) | .version' \
+    jq -r ".versions[] | select(.platforms[\"$platform\"] != null) | .version" \
       | sort -V
 }
 
 getLatestRemoteVersion() {
   getVersionHistory | \
-    jq -r '.versions[] | select(.platforms["linux-x64"] != null) | .version' \
+    jq -r ".versions[] | select(.platforms[\"$platform\"] != null) | .version" \
       | sort -V \
       | tail -n1
 }
@@ -108,7 +135,7 @@ downloadVersion() {
   localFilename="cursor-$version.AppImage"
   url=$(
     getVersionHistory | \
-      jq -r --arg v "$version" '.versions[] | select(.version == $v and .platforms["linux-x64"] != null) | .platforms["linux-x64"]'
+      jq -r --arg v "$version" --arg platform "$platform" '.versions[] | select(.version == $v and .platforms[$platform] != null) | .platforms[$platform]'
   )
   echo "Downloading Cursor $version..."
   wget -O "$DOWNLOADS_DIR/$localFilename" "$url"
@@ -315,16 +342,37 @@ case "$1" in
     help
     ;;
   --version|-v)
-    echo "Current version: $CVM_VERSION"
+    echo "Cursor Version Manager (cvm.sh):"
+    echo "  - Current version: $CVM_VERSION"
     if latest_version=$(getLatestScriptVersion); then
       if [ "$latest_version" != "$CVM_VERSION" ]; then
-        echo "Latest version available: $latest_version"
-        echo "You can download the latest version with: $0 --update-script"
+        echo "  - Latest version: $latest_version"
+        print_color "$ORANGE" "There is a newer cvm.sh version available for download!"
+        print_color "$ORANGE" "You can update the script with: $0 --update-script"
       else
-        echo "You are running the latest version"
+        print_color "$GREEN" "You are running the latest cvm.sh version!"
       fi
     else
-      echo "Failed to check for latest version"
+      echo "Failed to check for latest cvm.sh version"
+    fi
+    
+    echo ""
+    echo "Cursor App Information:"
+    latestRemoteVersion=$(getLatestRemoteVersion)
+    latestLocalVersion=$(getLatestLocalVersion)
+    activeVersion=$(getActiveVersion 2>/dev/null || echo "None")
+    echo "  - Latest remote version: $latestRemoteVersion"
+    echo "  - Latest locally available: $latestLocalVersion"
+    echo "  - Currently active: $activeVersion"
+
+    if [ "$latestRemoteVersion" != "$latestLocalVersion" ]; then
+      print_color "$ORANGE" "There is a newer Cursor version available for download!"
+      print_color "$ORANGE" "You can download and activate it with \`cvm --update\`"
+    elif [ "$latestRemoteVersion" != "$activeVersion" ]; then
+      print_color "$ORANGE" "There is a newer Cursor version already installed!"
+      print_color "$ORANGE" "You can activate it with \`cvm --use $latestRemoteVersion\`"
+    else
+      print_color "$GREEN" "You are running the latest Cursor version!"
     fi
     ;;
   --update)
@@ -363,24 +411,6 @@ case "$1" in
       downloadVersion "$version"
     fi
     echo "To select the downloaded version, run \`cvm --use $version\`"
-    ;;
-  --check)
-    latestRemoteVersion=$(getLatestRemoteVersion)
-    latestLocalVersion=$(getLatestLocalVersion)
-    activeVersion=$(getActiveVersion)
-    echo "Latest remote version: $latestRemoteVersion"
-    echo "Latest locally available: $latestLocalVersion"
-    echo "Currently active: $activeVersion"
-
-    if [ "$latestRemoteVersion" != "$latestLocalVersion" ]; then
-      echo "There is a newer version available for download!"
-      echo "You can activate the latest version with \`cvm --update\`"
-    elif [ "$latestRemoteVersion" != "$activeVersion" ]; then
-      echo "There is a newer version already installed!"
-      echo "You can activate the latest version with \`cvm --use $latestRemoteVersion\`"
-    else
-      echo "Already up to date."
-    fi
     ;;
   --active)
     getActiveVersion
