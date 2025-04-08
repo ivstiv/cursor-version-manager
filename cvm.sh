@@ -23,6 +23,7 @@
 #H#   --remove <version>   Removes a locally available version
 #H#   --install            Adds an alias `cursor` and downloads the latest version
 #H#   --uninstall          Removes the Cursor version manager directory and alias
+#H#   --update-script      Updates the (cvm) script to the latest version
 #H#   -v --version         Shows the script version
 #H#   -h --help            Shows this message
 
@@ -36,13 +37,24 @@ DOWNLOADS_DIR="$CURSOR_DIR/app-images"
 CVM_VERSION="1.2.0"
 _CACHE_FILE="/tmp/cursor_versions.json"
 VERSION_HISTORY_URL="https://raw.githubusercontent.com/oslook/cursor-ai-downloads/refs/heads/main/version-history.json"
-
+GITHUB_API_URL="https://api.github.com/repos/ivstiv/cursor-version-manager/releases/latest"
 
 #
 # Functions
 #
 help() {
   sed -rn 's/^#H# ?//;T;p' "$0"
+}
+
+getLatestScriptVersion() {
+  # Fetch latest release version from GitHub API
+  latest_version=$(wget -qO- "$GITHUB_API_URL" | jq -r '.tag_name' 2>/dev/null)
+  if [ -n "$latest_version" ]; then
+    echo "$latest_version"
+    return 0
+  else
+    return 1
+  fi
 }
 
 getVersionHistory() {
@@ -243,6 +255,44 @@ cleanupAppImages() {
   done
 }
 
+updateScript() {
+  version=$(getLatestScriptVersion)
+  
+  if [ -z "$version" ]; then
+    echo "Error: Failed to determine version to download" >&2
+    return 1
+  fi
+  
+  # Get the download URL from the release assets
+  download_url=$(
+    wget -O- "$GITHUB_API_URL" \
+      | jq -r '.assets[] | select(.name == "cvm.sh") | .browser_download_url'
+  )
+  
+  if [ -z "$download_url" ]; then
+    echo "Error: Failed to find download URL for cvm.sh" >&2
+    return 1
+  fi
+  
+  echo "Downloading CVM version ${version}..."
+  
+  # Download to a temporary file in the same directory
+  script_dir=$(dirname "$0")
+  temp_file="${script_dir}/cvm.sh.new"
+  
+  if wget -qO "$temp_file" "$download_url"; then
+    chmod +x "$temp_file"
+    mv "$temp_file" "$0"
+    echo "Successfully updated to version ${version}"
+    echo "Please run the script again to use the new version"
+    return 0
+  else
+    rm -f "$temp_file"
+    echo "Error: Failed to download version ${version}" >&2
+    return 1
+  fi
+}
+
 
 
 #
@@ -265,7 +315,17 @@ case "$1" in
     help
     ;;
   --version|-v)
-    echo "$CVM_VERSION"
+    echo "Current version: $CVM_VERSION"
+    if latest_version=$(getLatestScriptVersion); then
+      if [ "$latest_version" != "$CVM_VERSION" ]; then
+        echo "Latest version available: $latest_version"
+        echo "You can download the latest version with: $0 --update-script"
+      else
+        echo "You are running the latest version"
+      fi
+    else
+      echo "Failed to check for latest version"
+    fi
     ;;
   --update)
     latestVersion=$(getLatestRemoteVersion)
@@ -355,6 +415,9 @@ case "$1" in
     ;;
   --uninstall)
     uninstallCVM
+    ;;
+  --update-script)
+    updateScript
     ;;
   *)
     echo "Unknown command: $1"
