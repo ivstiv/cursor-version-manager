@@ -33,7 +33,7 @@
 #
 CURSOR_DIR="$HOME/.local/share/cvm"
 DOWNLOADS_DIR="$CURSOR_DIR/app-images"
-CVM_VERSION="1.3.0"
+CVM_VERSION="1.4.0"
 _CACHE_FILE="/tmp/cursor_versions.json"
 VERSION_HISTORY_URL="https://raw.githubusercontent.com/oslook/cursor-ai-downloads/refs/heads/main/version-history.json"
 GITHUB_API_URL="https://api.github.com/repos/ivstiv/cursor-version-manager/releases/latest"
@@ -197,6 +197,14 @@ installCVM() {
         echo "alias cursor='$CURSOR_DIR/active'" >> "$HOME/.zshrc"
       fi
       ;;
+    fish)
+      if [ ! -f "$HOME/.config/fish/functions/cursor.fish" ] || ! grep -q "function cursor" "$HOME/.config/fish/functions/cursor.fish"; then
+        mkdir -p "$HOME/.config/fish/functions"
+        echo "function cursor" > "$HOME/.config/fish/functions/cursor.fish"
+        echo "    $CURSOR_DIR/active \$argv" >> "$HOME/.config/fish/functions/cursor.fish"
+        echo "end" >> "$HOME/.config/fish/functions/cursor.fish"
+      fi
+      ;;
   esac
   echo "Alias added. You can now use 'cursor' to run Cursor."
   case "$(basename "$SHELL")" in
@@ -208,6 +216,9 @@ installCVM() {
       ;;
     zsh)
       echo "Run 'source ~/.zshrc' to apply the changes or restart your shell."
+      ;;
+    fish)
+      echo "The cursor function has been added in ~/.config/fish/functions/cursor.fish. You can use it immediately."
       ;;
   esac
 }
@@ -236,6 +247,12 @@ uninstallCVM() {
         echo "Run 'source ~/.zshrc' to apply the changes or restart your shell."
       fi
       ;;
+    fish)
+      if [ -f "$HOME/.config/fish/functions/cursor.fish" ]; then
+        rm "$HOME/.config/fish/functions/cursor.fish"
+        echo "Cursor function removed from ~/.config/fish/functions/cursor.fish"
+      fi
+      ;;
   esac
   echo "Cursor version manager uninstalled."
 }
@@ -252,7 +269,7 @@ checkDependencies() {
 
 isShellSupported() {
   case "$(basename "$SHELL")" in
-    sh|dash|bash|zsh)
+    sh|dash|bash|zsh|fish)
       return 0
       ;;
     *)
@@ -326,7 +343,7 @@ updateScript() {
 # Execution
 #
 if ! isShellSupported; then
-  echo "Error: Unsupported shell. Please use bash, zsh, or sh."
+  echo "Error: Unsupported shell. Please use bash, zsh, fish, or sh."
   echo "Currently using: $(basename "$SHELL")"
   echo "Open a github issue if you want to add support for your shell:"
   echo "https://github.com/ivstiv/cursor-version-manager/issues"
