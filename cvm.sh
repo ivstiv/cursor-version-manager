@@ -1,4 +1,7 @@
-#!/bin/sh
+#!/bin/bash
+
+set -euo pipefail
+trap 'printf "\nScript interrupted by user. Please remove any unfinished downloads (if any) using --remove option.\n"; exit 130' INT TERM
 
 #H#
 #H# cvm.sh — Cursor version manager
@@ -119,10 +122,11 @@ getLatestRemoteVersion() {
 
 getLatestLocalVersion() {
   # shellcheck disable=SC2010
-  ls -1 "$DOWNLOADS_DIR" \
+  ls -1 "$DOWNLOADS_DIR" 2>/dev/null \
     | grep -oP 'cursor-\K[0-9.]+(?=\.)' \
-    | sort -r \
-    | head -n 1
+    | sort -V -r \
+    | head -n 1 \
+    || true
 }
 
 downloadVersion() {
@@ -149,12 +153,15 @@ selectVersion() {
   appimage_path="$DOWNLOADS_DIR/$filename"
   ln -sf "$appimage_path" "$CURSOR_DIR/active"
   echo "Symlink created: $CURSOR_DIR/active -> $appimage_path"
+  echo "Close all instances of Cursor and reopen it to use the new version."
 }
 
 getActiveVersion() {
   if [ -L "$CURSOR_DIR/active" ]; then
     appimage_path=$(readlink -f "$CURSOR_DIR/active")
-    version=$(basename "$appimage_path" | sed -E 's/cursor-([0-9.]+)\.AppImage/\1/')
+    filename=$(basename "$appimage_path")
+    version=${filename#cursor-}
+    version=${version%.AppImage}
     echo "$version"
   else
     echo "No active version. Use \`cvm --use <version>\` to select one."
@@ -200,9 +207,12 @@ installCVM() {
     fish)
       if [ ! -f "$HOME/.config/fish/functions/cursor.fish" ] || ! grep -q "function cursor" "$HOME/.config/fish/functions/cursor.fish"; then
         mkdir -p "$HOME/.config/fish/functions"
-        echo "function cursor" > "$HOME/.config/fish/functions/cursor.fish"
-        echo "    $CURSOR_DIR/active \$argv" >> "$HOME/.config/fish/functions/cursor.fish"
-        echo "end" >> "$HOME/.config/fish/functions/cursor.fish"
+        {
+          echo "function cursor"
+          echo "    nohup $CURSOR_DIR/active \$argv --no-sandbox </dev/null >/dev/null 2>&1 &"
+          echo "    disown"
+          echo "end"
+        } > "$HOME/.config/fish/functions/cursor.fish"
       fi
       ;;
   esac
@@ -354,6 +364,12 @@ checkDependencies
 mkdir -p "$DOWNLOADS_DIR"
 cleanupAppImages
 
+if [ -z "${1:-}" ]; then
+  echo "Usage: $0 <options>"
+  help
+  exit 1
+fi
+
 case "$1" in
   --help|-h)
     help
@@ -376,45 +392,84 @@ case "$1" in
     echo ""
     echo "Cursor App Information:"
     latestRemoteVersion=$(getLatestRemoteVersion)
-    latestLocalVersion=$(getLatestLocalVersion)
-    activeVersion=$(getActiveVersion 2>/dev/null || echo "None")
-    echo "  - Latest remote version: $latestRemoteVersion"
-    echo "  - Latest locally available: $latestLocalVersion"
-    echo "  - Currently active: $activeVersion"
+    if [ -d "$DOWNLOADS_DIR" ] && [ -n "$(ls -A "$DOWNLOADS_DIR" 2>/dev/null)" ]; then
+      latestLocalVersion=$(getLatestLocalVersion)
+      activeVersion=$(getActiveVersion 2>/dev/null || echo "None")
+      echo "  - Latest remote version: $latestRemoteVersion"
+      echo "  - Latest locally available: $latestLocalVersion"
+      echo "  - Currently active: $activeVersion"
 
-    if [ "$latestRemoteVersion" != "$latestLocalVersion" ]; then
-      print_color "$ORANGE" "There is a newer Cursor version available for download!"
-      print_color "$ORANGE" "You can download and activate it with \`cvm --update\`"
-    elif [ "$latestRemoteVersion" != "$activeVersion" ]; then
-      print_color "$ORANGE" "There is a newer Cursor version already installed!"
-      print_color "$ORANGE" "You can activate it with \`cvm --use $latestRemoteVersion\`"
+      if [ "$latestRemoteVersion" != "$latestLocalVersion" ]; then
+        print_color "$ORANGE" "There is a newer Cursor version available for download!"
+        print_color "$ORANGE" "You can download and activate it with \`cvm --update\`"
+      elif [ "$latestRemoteVersion" != "$activeVersion" ]; then
+        print_color "$ORANGE" "There is a newer Cursor version already installed!"
+        print_color "$ORANGE" "You can activate it with \`cvm --use $latestRemoteVersion\`"
+      else
+        print_color "$GREEN" "You are running the latest Cursor version!"
+      fi
     else
-      print_color "$GREEN" "You are running the latest Cursor version!"
+      echo "  - Latest remote version: $latestRemoteVersion"
+      echo "  - No local Cursor installation found"
+      print_color "$ORANGE" "To install Cursor, run: $0 --install"
     fi
     ;;
   --update)
-    latestVersion=$(getLatestRemoteVersion)
-    downloadVersion "$latestVersion"
-    selectVersion "$version"
+    latestRemoteVersion=$(getLatestRemoteVersion)
+    
+    if [ ! -d "$DOWNLOADS_DIR" ] || [ -z "$(ls -A "$DOWNLOADS_DIR" 2>/dev/null)" ]; then
+      echo "No Cursor versions found locally."
+      echo "Downloading latest version $latestRemoteVersion..."
+      downloadVersion "$latestRemoteVersion"
+      selectVersion "$latestRemoteVersion"
+      print_color "$GREEN" "Downloaded and switched to version $latestRemoteVersion."
+      exit 0
+    fi
+
+    activeVersion=$(getActiveVersion 2>/dev/null || echo "None")
+
+    if [ "$latestRemoteVersion" = "$activeVersion" ]; then
+      print_color "$GREEN" "You are already running the latest version: $activeVersion"
+      exit 0
+    fi
+
+    localFileForLatest="$DOWNLOADS_DIR/cursor-$latestRemoteVersion.AppImage"
+    if [ -f "$localFileForLatest" ]; then
+      echo "Latest version $latestRemoteVersion is already downloaded."
+      selectVersion "$latestRemoteVersion"
+      print_color "$GREEN" "Switched to version $latestRemoteVersion."
+    else
+      echo "Downloading latest version $latestRemoteVersion..."
+      downloadVersion "$latestRemoteVersion"
+      selectVersion "$latestRemoteVersion"
+      print_color "$GREEN" "Downloaded and switched to version $latestRemoteVersion."
+    fi
     ;;
   --list-local)
-    echo "Locally available versions:"
     # shellcheck disable=SC2010
-    ls -1 "$DOWNLOADS_DIR" \
-      | grep -oP 'cursor-\K[0-9.]+(?=\.)' \
-      | sed 's/^/  - /'
+    local_versions_list=$(ls -1 "$DOWNLOADS_DIR" 2>/dev/null | grep -oP 'cursor-\K[0-9.]+(?=\.)' || true)
+    if [ -n "$local_versions_list" ]; then
+      echo "Locally available versions:"
+      while IFS= read -r version; do
+        echo "  - $version"
+      done <<< "$local_versions_list"
+    else
+      echo "  No versions installed."
+    fi
     ;;
   --list-remote)
     echo "Remote versions:"
-    getRemoteVersions | sed 's/^/  - /'
+    while IFS= read -r version; do
+      echo "  - $version"
+    done < <(getRemoteVersions)
     ;;
   --download)
-    version=$2
-    if [ -z "$version" ]; then
+    if [ -z "${2:-}" ]; then
       echo "Usage: $0 --download <version>"
       exit 1
     fi
 
+    version=$2
     # check if version is available for download
     if ! getRemoteVersions | grep -q "^$version\$"; then
       echo "Version $version not found for download."
@@ -433,29 +488,42 @@ case "$1" in
     getActiveVersion
     ;;
   --use)
-    version=$2
-    if [ -z "$version" ]; then
+    if [ -z "${2:-}" ]; then
       echo "Usage: $0 --use <version>"
       exit 1
     fi
 
+    version=$2
     exitIfVersionNotInstalled "$version"
     selectVersion "$version"
     ;;
   --remove)
-    version=$2c
-    if [ -z "$version" ]; then
+    if [ -z "${2:-}" ]; then
       echo "Usage: $0 --remove <version>"
       exit 1
     fi
 
+    version=$2
     exitIfVersionNotInstalled "$version"
-    activeVersion=$(getActiveVersion)
-
-    if [ "$activeVersion" = "$version" ]; then
-      rm "$CURSOR_DIR/active"
+    
+    # Check if this version is currently active
+    if [ -L "$CURSOR_DIR/active" ]; then
+      activeVersion=$(getActiveVersion)
+      if [ "$activeVersion" = "$version" ]; then
+        echo "Removing active version $version..."
+        rm "$CURSOR_DIR/active"
+        print_color "$GREEN" "✓ Removed active symlink"
+      fi
     fi
-    rm "$DOWNLOADS_DIR/cursor-$version.AppImage"
+
+    # Remove the AppImage file
+    echo "Removing AppImage for version $version..."
+    if rm "$DOWNLOADS_DIR/cursor-$version.AppImage"; then
+      print_color "$GREEN" "✓ Successfully removed version $version"
+    else
+      print_color "$ORANGE" "! Failed to remove version $version"
+      exit 1
+    fi
     ;;
   --install)
     installCVM
